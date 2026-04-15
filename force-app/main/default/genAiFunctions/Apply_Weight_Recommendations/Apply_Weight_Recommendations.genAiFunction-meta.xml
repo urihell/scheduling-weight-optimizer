@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GenAiFunction xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Updates scheduling objective weights on a scheduling policy. Always confirm with the user before calling this action. Accepts a JSON array of objectiveId and newWeight pairs.</description>
+    <invocationTarget>WeightUpdateService</invocationTarget>
+    <invocationTargetType>apex</invocationTargetType>
+    <isConfirmationRequired>true</isConfirmationRequired>
+    <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+    <masterLabel>Apply Weight Recommendations</masterLabel>
+    <progressIndicatorMessage>Updating objective weights</progressIndicatorMessage>
+</GenAiFunction>

@@ -1,0 +1,14 @@
+{
+  "required": ["schedulingPolicyName"],
+  "unevaluatedProperties": false,
+  "properties": {
+    "schedulingPolicyName": {
+      "title": "schedulingPolicyName",
+      "description": "Name of the scheduling policy",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": false
+    }
+  },
+  "lightning:type": "lightning__objectType"
+}

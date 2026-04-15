@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GenAiFunction xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Analyzes historical optimization data for a scheduling policy and returns performance metrics and current objective weights as structured JSON. Use when the user asks to analyze scheduling policy performance or recommend weight changes.</description>
+    <invocationTarget>WeightRecommendationService</invocationTarget>
+    <invocationTargetType>apex</invocationTargetType>
+    <isConfirmationRequired>false</isConfirmationRequired>
+    <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+    <masterLabel>Analyze Scheduling Policy Performance</masterLabel>
+    <progressIndicatorMessage>Analyzing optimization history</progressIndicatorMessage>
+</GenAiFunction>

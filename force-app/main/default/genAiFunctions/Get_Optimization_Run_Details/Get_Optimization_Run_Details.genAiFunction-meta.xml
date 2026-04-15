@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GenAiFunction xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Gets detailed metrics for a specific optimization request and territory. Use when the user wants to drill into a specific optimization run.</description>
+    <invocationTarget>WeightRecommendationService</invocationTarget>
+    <invocationTargetType>apex</invocationTargetType>
+    <isConfirmationRequired>false</isConfirmationRequired>
+    <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+    <masterLabel>Get Optimization Run Details</masterLabel>
+    <progressIndicatorMessage>Fetching optimization details</progressIndicatorMessage>
+</GenAiFunction>

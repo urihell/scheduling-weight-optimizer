@@ -1,0 +1,21 @@
+{
+  "required": ["schedulingPolicyId", "weightChangesJson"],
+  "unevaluatedProperties": false,
+  "properties": {
+    "schedulingPolicyId": {
+      "title": "schedulingPolicyId",
+      "description": "ID of the scheduling policy to update",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": false
+    },
+    "weightChangesJson": {
+      "title": "weightChangesJson",
+      "description": "JSON array of objects with objectiveId (String) and newWeight (Number) fields",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": false
+    }
+  },
+  "lightning:type": "lightning__objectType"
+}
