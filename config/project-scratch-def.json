@@ -1,0 +1,6 @@
+{
+  "orgName": "Scheduling Weight Optimizer",
+  "edition": "Developer",
+  "features": ["FieldService"],
+  "hasSampleData": false
+}
