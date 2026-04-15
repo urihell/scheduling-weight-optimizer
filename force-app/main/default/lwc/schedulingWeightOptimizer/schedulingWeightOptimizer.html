@@ -1,0 +1,185 @@
+<template>
+    <!-- Policy Selector (only shown on App Page, not record page) -->
+    <template lwc:if={showPolicySelector}>
+        <lightning-card title="Scheduling Weight Optimizer" icon-name="custom:custom63">
+            <div class="slds-p-horizontal_medium slds-p-bottom_medium">
+                <lightning-combobox
+                    name="policySelector"
+                    label="Scheduling Policy"
+                    placeholder="Select a Scheduling Policy"
+                    options={policyOptions}
+                    value={selectedPolicyId}
+                    onchange={handlePolicyChange}>
+                </lightning-combobox>
+            </div>
+        </lightning-card>
+    </template>
+
+    <!-- Loading Spinner -->
+    <template lwc:if={isLoading}>
+        <lightning-spinner alternative-text="Loading analysis..." size="medium"></lightning-spinner>
+    </template>
+
+    <!-- Main Content -->
+    <template lwc:if={hasData}>
+        <!-- Section 1: Summary Cards -->
+        <div class="slds-grid slds-wrap slds-gutters slds-p-around_medium">
+            <div class="slds-col slds-size_1-of-4">
+                <lightning-card>
+                    <div class="kpi-card">
+                        <p class="kpi-label">Avg Schedule Rate</p>
+                        <p class="kpi-value">{avgScheduleRate}%</p>
+                    </div>
+                </lightning-card>
+            </div>
+            <div class="slds-col slds-size_1-of-4">
+                <lightning-card>
+                    <div class="kpi-card">
+                        <p class="kpi-label">Avg Utilization Delta</p>
+                        <p class="kpi-value">{avgUtilizationDelta}%</p>
+                    </div>
+                </lightning-card>
+            </div>
+            <div class="slds-col slds-size_1-of-4">
+                <lightning-card>
+                    <div class="kpi-card">
+                        <p class="kpi-label">Avg Travel Reduction</p>
+                        <p class="kpi-value">{avgTravelReduction}%</p>
+                    </div>
+                </lightning-card>
+            </div>
+            <div class="slds-col slds-size_1-of-4">
+                <lightning-card>
+                    <div class="kpi-card">
+                        <p class="kpi-label">Runs Analyzed</p>
+                        <p class="kpi-value">{totalRunsAnalyzed}</p>
+                    </div>
+                </lightning-card>
+            </div>
+        </div>
+
+        <!-- Section 2: Charts -->
+        <div class="slds-grid slds-wrap slds-gutters slds-p-horizontal_medium">
+            <!-- Left Column -->
+            <div class="slds-col slds-size_1-of-2">
+                <lightning-card title="Current vs. Recommended Weights">
+                    <div class="chart-container slds-p-around_medium">
+                        <canvas lwc:ref="radarChart"></canvas>
+                    </div>
+                </lightning-card>
+                <lightning-card title="Objective Impact Correlation" class="slds-m-top_medium">
+                    <div class="chart-container slds-p-around_medium">
+                        <canvas lwc:ref="heatmapChart"></canvas>
+                    </div>
+                </lightning-card>
+            </div>
+            <!-- Right Column -->
+            <div class="slds-col slds-size_1-of-2">
+                <lightning-card title="Optimization Trends">
+                    <div class="chart-container-tall slds-p-around_medium">
+                        <canvas lwc:ref="trendChart"></canvas>
+                    </div>
+                </lightning-card>
+            </div>
+        </div>
+
+        <!-- Section 3: Recommendation Panel -->
+        <div class="slds-p-around_medium">
+            <lightning-card title="AI Weight Recommendations" icon-name="standard:einstein_replies">
+                <div class="slds-p-around_medium">
+                    <template lwc:if={hasRecommendation}>
+                        <div class="recommendation-text slds-m-bottom_medium">
+                            <lightning-formatted-rich-text value={recommendationText}></lightning-formatted-rich-text>
+                        </div>
+
+                        <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-m-bottom_medium">
+                            <thead>
+                                <tr class="slds-line-height_reset">
+                                    <th scope="col"><div class="slds-truncate">Objective</div></th>
+                                    <th scope="col"><div class="slds-truncate">Type</div></th>
+                                    <th scope="col"><div class="slds-truncate">Current Weight</div></th>
+                                    <th scope="col"><div class="slds-truncate">Recommended Weight</div></th>
+                                    <th scope="col"><div class="slds-truncate">Change</div></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template for:each={weightComparison} for:item="row">
+                                    <tr key={row.objectiveId}>
+                                        <td><div class="slds-truncate">{row.objectiveName}</div></td>
+                                        <td><div class="slds-truncate">{row.objectiveType}</div></td>
+                                        <td><div class="slds-truncate">{row.currentWeight}</div></td>
+                                        <td><div class="slds-truncate">{row.recommendedWeight}</div></td>
+                                        <td>
+                                            <div class={row.changeClass}>{row.changeDisplay}</div>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+
+                        <lightning-button
+                            variant="brand"
+                            label="Apply Recommendations"
+                            onclick={handleApplyClick}
+                            disabled={isApplying}>
+                        </lightning-button>
+                    </template>
+
+                    <template lwc:if={isAnalyzing}>
+                        <div class="slds-align_absolute-center slds-p-around_large">
+                            <lightning-spinner alternative-text="Analyzing..." size="small"></lightning-spinner>
+                            <span class="slds-m-left_medium">Analyzing optimization history...</span>
+                        </div>
+                    </template>
+
+                    <template lwc:if={showAnalyzeButton}>
+                        <div class="slds-align_absolute-center">
+                            <lightning-button
+                                variant="brand"
+                                label="Analyze & Recommend Weights"
+                                icon-name="utility:einstein"
+                                onclick={handleAnalyzeClick}>
+                            </lightning-button>
+                        </div>
+                    </template>
+                </div>
+            </lightning-card>
+        </div>
+    </template>
+
+    <!-- No Data State -->
+    <template lwc:if={noData}>
+        <div class="slds-p-around_medium">
+            <lightning-card>
+                <div class="slds-align_absolute-center slds-p-around_large">
+                    <p class="slds-text-color_weak">Select a scheduling policy with completed optimization requests to begin analysis.</p>
+                </div>
+            </lightning-card>
+        </div>
+    </template>
+
+    <!-- Confirmation Modal -->
+    <template lwc:if={showConfirmModal}>
+        <section role="dialog" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <h2 class="slds-modal__title">Confirm Weight Update</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p>Are you sure you want to apply the recommended weights to <strong>{policyName}</strong>?</p>
+                    <p class="slds-m-top_small">This will update the following objective weights:</p>
+                    <ul class="slds-list_dotted slds-m-top_small">
+                        <template for:each={weightComparison} for:item="row">
+                            <li key={row.objectiveId}>{row.objectiveName}: {row.currentWeight} &rarr; {row.recommendedWeight}</li>
+                        </template>
+                    </ul>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleCancelApply}></lightning-button>
+                    <lightning-button variant="brand" label="Apply" onclick={handleConfirmApply} class="slds-m-left_x-small"></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+</template>

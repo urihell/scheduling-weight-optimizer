@@ -1,0 +1,49 @@
+.kpi-card {
+    text-align: center;
+    padding: 1rem;
+}
+
+.kpi-label {
+    font-size: 0.75rem;
+    color: #706e6b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.25rem;
+}
+
+.kpi-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #032d60;
+}
+
+.chart-container {
+    position: relative;
+    height: 300px;
+}
+
+.chart-container-tall {
+    position: relative;
+    height: 632px;
+}
+
+.recommendation-text {
+    background-color: #f3f3f3;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    border-left: 4px solid #0176d3;
+}
+
+.change-positive {
+    color: #2e844a;
+    font-weight: 600;
+}
+
+.change-negative {
+    color: #ea001e;
+    font-weight: 600;
+}
+
+.change-neutral {
+    color: #706e6b;
+}
