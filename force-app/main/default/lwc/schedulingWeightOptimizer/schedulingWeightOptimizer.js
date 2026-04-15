@@ -3,7 +3,7 @@ import { loadScript } from 'lightning/platformResourceLoader';
 import chartjs from '@salesforce/resourceUrl/chartjs';
 import analyzePolicy from '@salesforce/apex/OptimizationAnalysisService.analyzePolicy';
 import getSchedulingPolicies from '@salesforce/apex/OptimizationAnalysisService.getSchedulingPolicies';
-import analyzeForLwc from '@salesforce/apex/WeightRecommendationService.analyzeForLwc';
+import simulateForLwc from '@salesforce/apex/WeightSimulationService.simulateForLwc';
 import applyWeightsForLwc from '@salesforce/apex/WeightUpdateService.applyWeightsForLwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
@@ -134,20 +134,13 @@ export default class SchedulingWeightOptimizer extends LightningElement {
     async handleAnalyzeClick() {
         this.isAnalyzing = true;
         try {
-            const resultJson = await analyzeForLwc({
+            const resultJson = await simulateForLwc({
                 schedulingPolicyId: this.selectedPolicyId
             });
-            const result = JSON.parse(resultJson);
-
-            if (result && result.success) {
-                const analysisData = JSON.parse(result.analysisJson);
-                this.generateRecommendations(analysisData);
-            } else {
-                const errorMsg = result?.analysisJson || 'Unknown error';
-                this.showToast('Error', 'Analysis failed: ' + errorMsg, 'error');
-            }
+            const simResult = JSON.parse(resultJson);
+            this.processSimulationResults(simResult);
         } catch (error) {
-            this.showToast('Error', 'Analysis failed: ' + this.extractError(error), 'error');
+            this.showToast('Error', 'Simulation failed: ' + this.extractError(error), 'error');
         } finally {
             this.isAnalyzing = false;
         }
@@ -215,84 +208,85 @@ export default class SchedulingWeightOptimizer extends LightningElement {
         }
     }
 
-    generateRecommendations(analysisData) {
-        const weights = analysisData.currentWeights || [];
-        const agg = analysisData.aggregates || {};
-        const runs = analysisData.runs || [];
+    processSimulationResults(simResult) {
+        if (!simResult || !simResult.bestScenario) {
+            this.recommendationText = '<p>No simulation results available. Ensure the policy has completed optimization runs.</p>';
+            return;
+        }
 
-        const recommendations = [];
+        const current = simResult.currentScenario;
+        const best = simResult.bestScenario;
+        const totalSims = simResult.totalSimulations || 0;
+
+        // Build weight comparison table from best scenario vs current
         this.weightComparison = [];
-
-        for (const w of weights) {
-            let recommendedWeight = w.weight || 0;
-            let reasoning = '';
-
-            const objType = (w.objectiveType || '').toLowerCase();
-
-            if (objType.includes('travel') || objType.includes('minimize_travel')) {
-                if (agg.avgTravelEfficiency < 5) {
-                    recommendedWeight = Math.min((w.weight || 0) + 2, 10);
-                    reasoning = 'Travel reduction is low — increasing weight to prioritize.';
-                } else if (agg.avgTravelEfficiency > 20) {
-                    recommendedWeight = Math.max((w.weight || 0) - 1, 1);
-                    reasoning = 'Travel reduction is strong — can reduce weight slightly.';
-                }
-            } else if (objType.includes('overtime') || objType.includes('minimize_overtime')) {
-                if (runs.length > 0) {
-                    const avgOvertime = runs.reduce((sum, r) => sum + (r.overtimeAfter || 0), 0) / runs.length;
-                    if (avgOvertime > 0) {
-                        recommendedWeight = Math.min((w.weight || 0) + 2, 10);
-                        reasoning = 'Overtime still occurring post-optimization — increase weight.';
-                    }
-                }
-            } else if (objType.includes('asap')) {
-                if (agg.avgScheduleRateDelta < 5) {
-                    recommendedWeight = Math.min((w.weight || 0) + 1, 10);
-                    reasoning = 'Schedule rate improvement is modest — boost ASAP priority.';
-                }
-            } else if (objType.includes('preferred') || objType.includes('preferredengineer')) {
-                if (agg.avgPreferredResourceRate < 50) {
-                    recommendedWeight = Math.min((w.weight || 0) + 1, 10);
-                    reasoning = 'Preferred resource match rate is below 50% — increase weight.';
-                }
-            } else if (objType.includes('gap') || objType.includes('minimize_gaps')) {
-                if (agg.avgUtilizationDelta < 2) {
-                    recommendedWeight = Math.min((w.weight || 0) + 1, 10);
-                    reasoning = 'Low utilization improvement — reducing gaps may help.';
-                }
-            }
-
-            if (!reasoning) {
-                reasoning = 'Current weight appears appropriate based on historical data.';
-            }
-
-            const change = recommendedWeight - (w.weight || 0);
-            let changeDisplay = change > 0 ? '+' + change : change === 0 ? '\u2014' : '' + change;
-            let changeClass = change > 0 ? 'change-positive' : change < 0 ? 'change-negative' : 'change-neutral';
-
-            this.weightComparison.push({
-                objectiveId: w.objectiveId,
-                objectiveName: w.objectiveName,
-                objectiveType: w.objectiveType,
-                currentWeight: w.weight || 0,
-                recommendedWeight: recommendedWeight,
-                changeDisplay: changeDisplay,
-                changeClass: changeClass
-            });
-
-            if (change !== 0) {
-                recommendations.push('<li><strong>' + w.objectiveName + '</strong> (' + w.objectiveType + '): ' + reasoning + '</li>');
+        const currentMap = {};
+        if (current && current.weights) {
+            for (const w of current.weights) {
+                currentMap[w.objectiveId] = Number(w.weight || 0);
             }
         }
 
-        let text = '<p><strong>Analysis Summary:</strong> Analyzed ' + (analysisData.totalRunsAnalyzed || 0) + ' optimization runs. ';
-        text += 'Trend: <strong>' + (agg.trend || 'stable') + '</strong>.</p>';
+        if (best.weights) {
+            for (const w of best.weights) {
+                const curW = currentMap[w.objectiveId] != null ? currentMap[w.objectiveId] : 0;
+                const recW = Number(w.weight || 0);
+                const change = recW - curW;
+                this.weightComparison.push({
+                    objectiveId: w.objectiveId,
+                    objectiveName: w.objectiveName,
+                    objectiveType: w.objectiveType,
+                    currentWeight: curW,
+                    recommendedWeight: recW,
+                    changeDisplay: change > 0 ? '+' + change : change === 0 ? '\u2014' : '' + change,
+                    changeClass: change > 0 ? 'change-positive' : change < 0 ? 'change-negative' : 'change-neutral'
+                });
+            }
+        }
 
-        if (recommendations.length > 0) {
-            text += '<p><strong>Recommended Changes:</strong></p><ul>' + recommendations.join('') + '</ul>';
+        // Build recommendation text with projected metrics
+        const fmt = (v) => v != null ? Number(v).toFixed(1) : '0.0';
+        const delta = (newVal, oldVal) => {
+            const d = Number(newVal || 0) - Number(oldVal || 0);
+            if (d > 0.05) return '<span style="color:#2e844a">+' + d.toFixed(1) + '%</span>';
+            if (d < -0.05) return '<span style="color:#ea001e">' + d.toFixed(1) + '%</span>';
+            return '<span style="color:#706e6b">no change</span>';
+        };
+
+        let text = '<p><strong>Simulation Complete:</strong> Tested <strong>' + totalSims + '</strong> weight configurations against historical data.</p>';
+        text += '<p><strong>Best Scenario: </strong>' + best.name + '</p>';
+
+        text += '<table style="width:100%;border-collapse:collapse;margin:8px 0">';
+        text += '<tr style="border-bottom:1px solid #d8d8d8"><th style="text-align:left;padding:4px">Metric</th><th style="padding:4px">Current</th><th style="padding:4px">Projected</th><th style="padding:4px">Change</th></tr>';
+
+        const metrics = [
+            { label: 'Schedule Rate', cur: current.projScheduleRate, proj: best.projScheduleRate },
+            { label: 'Utilization', cur: current.projUtilization, proj: best.projUtilization },
+            { label: 'Travel Reduction', cur: current.projTravel, proj: best.projTravel },
+            { label: 'Overtime Reduction', cur: current.projOvertime, proj: best.projOvertime },
+            { label: 'Preferred Resource', cur: current.projPreferred, proj: best.projPreferred }
+        ];
+
+        for (const m of metrics) {
+            text += '<tr style="border-bottom:1px solid #eee">';
+            text += '<td style="padding:4px">' + m.label + '</td>';
+            text += '<td style="padding:4px;text-align:center">' + fmt(m.cur) + '%</td>';
+            text += '<td style="padding:4px;text-align:center"><strong>' + fmt(m.proj) + '%</strong></td>';
+            text += '<td style="padding:4px;text-align:center">' + delta(m.proj, m.cur) + '</td>';
+            text += '</tr>';
+        }
+        text += '</table>';
+
+        const scoreDelta = Number(best.compositeScore || 0) - Number(current.compositeScore || 0);
+        if (scoreDelta > 0.05) {
+            text += '<p style="margin-top:8px">Composite score improvement: <strong style="color:#2e844a">+' + scoreDelta.toFixed(1) + '</strong></p>';
         } else {
-            text += '<p>Current weights appear well-tuned — no changes recommended.</p>';
+            text += '<p style="margin-top:8px">Current weights are near-optimal based on historical data.</p>';
         }
+
+        text += '<p style="margin-top:12px;padding:8px 12px;background:#f3f2f2;border-radius:4px;font-size:12px;color:#706e6b">';
+        text += '<strong>Note:</strong> Projections are model-based estimates using historical baselines and domain-knowledge impact coefficients \u2014 not actual optimizer runs. ';
+        text += 'Apply the recommended weights, run a real optimization, then return here to analyze the results and refine further.</p>';
 
         this.recommendationText = text;
 
@@ -387,7 +381,7 @@ export default class SchedulingWeightOptimizer extends LightningElement {
                 datasets: [
                     {
                         label: 'Utilization Delta (%)',
-                        data: runs.map(r => r.utilizationDelta?.toFixed(2) || 0),
+                        data: runs.map(r => Number(r.utilizationDelta || 0)),
                         borderColor: '#0176d3',
                         backgroundColor: 'rgba(1, 118, 211, 0.1)',
                         fill: true,
@@ -395,7 +389,7 @@ export default class SchedulingWeightOptimizer extends LightningElement {
                     },
                     {
                         label: 'Schedule Rate Delta (%)',
-                        data: runs.map(r => r.scheduleRateDelta?.toFixed(2) || 0),
+                        data: runs.map(r => Number(r.scheduleRateDelta || 0)),
                         borderColor: '#2e844a',
                         backgroundColor: 'rgba(46, 132, 74, 0.1)',
                         fill: true,
@@ -403,7 +397,7 @@ export default class SchedulingWeightOptimizer extends LightningElement {
                     },
                     {
                         label: 'Travel Efficiency (%)',
-                        data: runs.map(r => r.travelEfficiency?.toFixed(2) || 0),
+                        data: runs.map(r => Number(r.travelEfficiency || 0)),
                         borderColor: '#fe5c4c',
                         backgroundColor: 'rgba(254, 92, 76, 0.1)',
                         fill: true,
@@ -428,95 +422,94 @@ export default class SchedulingWeightOptimizer extends LightningElement {
 
     renderHeatmapChart() {
         const canvas = this.refs.heatmapChart;
-        if (!canvas || !this.analysisResult?.runs || !this.analysisResult?.currentWeights) return;
+        if (!canvas || !this.analysisResult?.aggregates) return;
 
         if (this.heatmapChartInstance) {
             this.heatmapChartInstance.destroy();
+            this.heatmapChartInstance = null;
         }
 
-        const objectives = this.analysisResult.currentWeights;
-        const metrics = ['Utilization', 'Travel', 'Schedule Rate', 'Overtime', 'Preferred Resource'];
-        const runs = this.analysisResult.runs;
+        const agg = this.analysisResult.aggregates;
+        const metrics = [
+            { label: 'Schedule Rate', value: Number(agg.avgScheduleRateDelta || 0) },
+            { label: 'Utilization', value: Number(agg.avgUtilizationDelta || 0) },
+            { label: 'Travel Reduction', value: Number(agg.avgTravelEfficiency || 0) },
+            { label: 'Overtime Reduction', value: Number(agg.avgOvertimeReduction || 0) },
+            { label: 'Preferred Resource', value: Number(agg.avgPreferredResourceRate || 0) }
+        ];
 
-        const datasets = metrics.map((metric, mIdx) => {
-            const colors = ['#0176d3', '#2e844a', '#fe5c4c', '#f38303', '#9050e9'];
-            const data = objectives.map(obj => {
-                return this.computeCorrelation(obj.objectiveType, metric, runs);
-            });
-
-            return {
-                label: metric,
-                data: data,
-                backgroundColor: colors[mIdx],
-                borderWidth: 1
-            };
+        const labels = metrics.map(m => m.label);
+        const values = metrics.map(m => parseFloat(m.value.toFixed(1)));
+        const bgColors = values.map(v => {
+            if (v > 10) return 'rgba(46, 132, 74, 0.75)';
+            if (v > 0.5) return 'rgba(1, 118, 211, 0.75)';
+            return 'rgba(176, 85, 55, 0.6)';
         });
+        const borderColors = values.map(v => {
+            if (v > 10) return '#2e844a';
+            if (v > 0.5) return '#0176d3';
+            return '#b05537';
+        });
+
+        const valueLabelPlugin = {
+            id: 'perfValueLabels',
+            afterDatasetsDraw(chart) {
+                const { ctx: c } = chart;
+                chart.getDatasetMeta(0).data.forEach((bar, idx) => {
+                    const v = chart.data.datasets[0].data[idx];
+                    c.fillStyle = '#3e3e3c';
+                    c.font = 'bold 12px -apple-system, BlinkMacSystemFont, sans-serif';
+                    c.textAlign = 'left';
+                    c.textBaseline = 'middle';
+                    c.fillText(v.toFixed(1) + '%', bar.x + 6, bar.y);
+                });
+            }
+        };
 
         this.heatmapChartInstance = new window.Chart(canvas, {
             type: 'bar',
             data: {
-                labels: objectives.map(o => o.objectiveName),
-                datasets: datasets
+                labels: labels,
+                datasets: [{
+                    label: 'Avg Improvement (%)',
+                    data: values,
+                    backgroundColor: bgColors,
+                    borderColor: borderColors,
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    barPercentage: 0.65
+                }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 indexAxis: 'y',
                 plugins: {
-                    legend: { position: 'bottom' },
-                    title: { display: false }
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (tooltipCtx) => {
+                                const v = tooltipCtx.raw;
+                                const rating = v > 10 ? 'Strong' : v > 2 ? 'Moderate' : v > 0 ? 'Minimal' : 'No improvement';
+                                return rating + ': ' + v.toFixed(1) + '%';
+                            }
+                        }
+                    }
                 },
                 scales: {
                     x: {
-                        title: { display: true, text: 'Correlation Strength' },
-                        min: -1,
-                        max: 1
+                        beginAtZero: true,
+                        grid: { color: '#eee' },
+                        title: { display: true, text: 'Avg Improvement (%)', font: { size: 11 } }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { font: { size: 12 } }
                     }
                 }
-            }
+            },
+            plugins: [valueLabelPlugin]
         });
-    }
-
-    computeCorrelation(objectiveType, metric, runs) {
-        const type = (objectiveType || '').toLowerCase();
-        const avgMetric = this.getAvgMetric(metric, runs);
-
-        const correlationMap = {
-            'objective_minimize_travel': { 'Travel': 0.9, 'Utilization': 0.3, 'Schedule Rate': 0.1, 'Overtime': 0.1, 'Preferred Resource': -0.1 },
-            'objective_asap': { 'Travel': -0.2, 'Utilization': 0.5, 'Schedule Rate': 0.8, 'Overtime': 0.2, 'Preferred Resource': 0.0 },
-            'objective_minimize_overtime': { 'Travel': 0.0, 'Utilization': 0.2, 'Schedule Rate': -0.1, 'Overtime': 0.9, 'Preferred Resource': 0.0 },
-            'objective_minimize_gaps': { 'Travel': 0.2, 'Utilization': 0.7, 'Schedule Rate': 0.3, 'Overtime': 0.1, 'Preferred Resource': 0.0 },
-            'objective_preferredengineer': { 'Travel': -0.3, 'Utilization': -0.1, 'Schedule Rate': -0.1, 'Overtime': 0.0, 'Preferred Resource': 0.9 },
-            'objective_resource_priority': { 'Travel': -0.1, 'Utilization': 0.2, 'Schedule Rate': 0.2, 'Overtime': 0.0, 'Preferred Resource': 0.4 },
-            'objective_skill_level': { 'Travel': -0.1, 'Utilization': 0.1, 'Schedule Rate': 0.3, 'Overtime': 0.0, 'Preferred Resource': 0.2 },
-            'objective_skill_preferences': { 'Travel': -0.1, 'Utilization': 0.1, 'Schedule Rate': 0.2, 'Overtime': 0.0, 'Preferred Resource': 0.3 },
-            'objective_same_site': { 'Travel': 0.6, 'Utilization': 0.3, 'Schedule Rate': 0.1, 'Overtime': 0.0, 'Preferred Resource': 0.0 }
-        };
-
-        const typeCorrelations = correlationMap[type] || {};
-        let correlation = typeCorrelations[metric] || 0;
-
-        if (avgMetric !== 0) {
-            correlation = correlation * (avgMetric > 0 ? 1 : -0.5);
-        }
-
-        return parseFloat(correlation.toFixed(2));
-    }
-
-    getAvgMetric(metric, runs) {
-        if (!runs || runs.length === 0) return 0;
-        let sum = 0;
-        for (const r of runs) {
-            switch (metric) {
-                case 'Utilization': sum += r.utilizationDelta || 0; break;
-                case 'Travel': sum += r.travelEfficiency || 0; break;
-                case 'Schedule Rate': sum += r.scheduleRateDelta || 0; break;
-                case 'Overtime': sum += r.overtimeReduction || 0; break;
-                case 'Preferred Resource': sum += r.preferredResourceRate || 0; break;
-                default: break;
-            }
-        }
-        return sum / runs.length;
     }
 
     extractError(error) {

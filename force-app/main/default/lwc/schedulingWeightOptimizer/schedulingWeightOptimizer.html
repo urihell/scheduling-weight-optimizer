@@ -62,12 +62,20 @@
         <div class="slds-grid slds-wrap slds-gutters slds-p-horizontal_medium">
             <!-- Left Column -->
             <div class="slds-col slds-size_1-of-2">
-                <lightning-card title="Current vs. Recommended Weights">
+                <lightning-card>
+                    <span slot="title">
+                        Current vs. Recommended Weights
+                        <lightning-helptext content="Radar chart showing current weight for each scheduling objective (1-10 scale). After running a simulation, the recommended weights appear as a second overlay for comparison."></lightning-helptext>
+                    </span>
                     <div class="chart-container slds-p-around_medium">
                         <canvas lwc:ref="radarChart"></canvas>
                     </div>
                 </lightning-card>
-                <lightning-card title="Objective Impact Correlation" class="slds-m-top_medium">
+                <lightning-card class="slds-m-top_medium">
+                    <span slot="title">
+                        Performance Overview
+                        <lightning-helptext content="Average performance across all optimization runs for each outcome metric. Green bars indicate strong improvement, blue bars are moderate, and red bars highlight areas where weight adjustments could improve outcomes."></lightning-helptext>
+                    </span>
                     <div class="chart-container slds-p-around_medium">
                         <canvas lwc:ref="heatmapChart"></canvas>
                     </div>
@@ -75,7 +83,11 @@
             </div>
             <!-- Right Column -->
             <div class="slds-col slds-size_1-of-2">
-                <lightning-card title="Optimization Trends">
+                <lightning-card>
+                    <span slot="title">
+                        Optimization Trends
+                        <lightning-helptext content="Performance across optimization runs over time. Tracks utilization improvement (%), schedule rate change (% of optimizable appointments scheduled), and travel time reduction (%). Upward trends indicate the current weights are effective; flat or declining trends suggest weight adjustments may help."></lightning-helptext>
+                    </span>
                     <div class="chart-container-tall slds-p-around_medium">
                         <canvas lwc:ref="trendChart"></canvas>
                     </div>
@@ -85,7 +97,11 @@
 
         <!-- Section 3: Recommendation Panel -->
         <div class="slds-p-around_medium">
-            <lightning-card title="AI Weight Recommendations" icon-name="standard:einstein_replies">
+            <lightning-card icon-name="standard:einstein_replies">
+                <span slot="title">
+                    AI Weight Recommendations
+                    <lightning-helptext content="Simulation engine that tests multiple weight configurations against your historical optimization data. Scores each scenario by projecting how weight changes would affect schedule rate, utilization, travel, overtime, and preferred resource metrics. The best-scoring configuration is recommended with projected improvements."></lightning-helptext>
+                </span>
                 <div class="slds-p-around_medium">
                     <template lwc:if={hasRecommendation}>
                         <div class="recommendation-text slds-m-bottom_medium">
