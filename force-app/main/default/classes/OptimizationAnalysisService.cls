@@ -333,6 +333,22 @@ public with sharing class OptimizationAnalysisService {
         return agg;
     }
 
+    // ── Get all scheduling policies for the LWC combobox ──
+
+    @AuraEnabled(cacheable=true)
+    public static List<Map<String, String>> getSchedulingPolicies() {
+        List<Map<String, String>> options = new List<Map<String, String>>();
+        for (FSL__Scheduling_Policy__c p : [
+            SELECT Id, Name FROM FSL__Scheduling_Policy__c ORDER BY Name ASC
+        ]) {
+            Map<String, String> opt = new Map<String, String>();
+            opt.put('label', p.Name);
+            opt.put('value', p.Id);
+            options.add(opt);
+        }
+        return options;
+    }
+
     // ── Null-safe decimal helper ──
 
     private static Decimal safe(Decimal val) {

@@ -2,6 +2,7 @@ import { LightningElement, api } from 'lwc';
 import { loadScript } from 'lightning/platformResourceLoader';
 import chartjs from '@salesforce/resourceUrl/chartjs';
 import analyzePolicy from '@salesforce/apex/OptimizationAnalysisService.analyzePolicy';
+import getSchedulingPolicies from '@salesforce/apex/OptimizationAnalysisService.getSchedulingPolicies';
 import analyzeForLwc from '@salesforce/apex/WeightRecommendationService.analyzeForLwc';
 import applyWeightsForLwc from '@salesforce/apex/WeightUpdateService.applyWeightsForLwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
@@ -66,6 +67,20 @@ export default class SchedulingWeightOptimizer extends LightningElement {
         if (this.recordId) {
             this.selectedPolicyId = this.recordId;
             this.loadAnalysis();
+        } else {
+            this.loadPolicyOptions();
+        }
+    }
+
+    async loadPolicyOptions() {
+        try {
+            const policies = await getSchedulingPolicies();
+            this.policyOptions = policies.map(p => ({
+                label: p.label,
+                value: p.value
+            }));
+        } catch (error) {
+            this.showToast('Error', 'Failed to load policies: ' + this.extractError(error), 'error');
         }
     }
 
