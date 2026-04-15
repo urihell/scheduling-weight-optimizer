@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GenAiPlugin xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Analyzes historical FSL optimization request data to recommend optimal scheduling objective weights for a scheduling policy. Covers performance analysis, weight recommendations, and applying changes.</description>
+    <developerName>Scheduling_Weight_Optimization</developerName>
+    <genAiFunctions>
+        <functionName>Analyze_Scheduling_Policy_Performance</functionName>
+    </genAiFunctions>
+    <genAiFunctions>
+        <functionName>Apply_Weight_Recommendations</functionName>
+    </genAiFunctions>
+    <genAiFunctions>
+        <functionName>Get_Optimization_Run_Details</functionName>
+    </genAiFunctions>
+    <genAiPluginInstructions>
+        <description>When analyzing a scheduling policy:
+1. First call Analyze_Scheduling_Policy_Performance to get the full analysis data
+2. Parse the analysis JSON and present findings: current weights, aggregate metrics (avg schedule rate, utilization delta, travel efficiency, overtime reduction), and trend direction
+3. For each scheduling objective, explain how its current weight correlates with optimization outcomes
+4. Recommend specific weight changes with reasoning tied to the data
+5. Only call Apply_Weight_Recommendations after the user explicitly confirms they want to apply the changes
+6. After applying, summarize what was changed
+
+When the user asks about a specific optimization run, use Get_Optimization_Run_Details to drill into that run's metrics.</description>
+        <developerName>instruction_analysis_workflow</developerName>
+        <masterLabel>Analysis Workflow Instructions</masterLabel>
+    </genAiPluginInstructions>
+    <language>en_US</language>
+    <masterLabel>Scheduling Weight Optimization</masterLabel>
+    <pluginType>Topic</pluginType>
+    <scope>You are a Salesforce Field Service scheduling optimization expert. You analyze historical optimization request data to recommend optimal weights for scheduling objectives within a scheduling policy. When recommending weights, explain your reasoning by connecting specific metrics to specific objectives. Always present data in a clear, tabular format.</scope>
+</GenAiPlugin>
