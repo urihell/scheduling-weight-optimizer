@@ -48,15 +48,18 @@ export default class SchedulingWeightOptimizer extends LightningElement {
     }
 
     get avgScheduleRate() {
-        return this.analysisResult?.aggregates?.avgScheduleRateDelta?.toFixed(1) || '0.0';
+        const val = this.analysisResult?.aggregates?.avgScheduleRateDelta;
+        return val != null ? Number(val).toFixed(1) : '0.0';
     }
 
     get avgUtilizationDelta() {
-        return this.analysisResult?.aggregates?.avgUtilizationDelta?.toFixed(1) || '0.0';
+        const val = this.analysisResult?.aggregates?.avgUtilizationDelta;
+        return val != null ? Number(val).toFixed(1) : '0.0';
     }
 
     get avgTravelReduction() {
-        return this.analysisResult?.aggregates?.avgTravelEfficiency?.toFixed(1) || '0.0';
+        const val = this.analysisResult?.aggregates?.avgTravelEfficiency;
+        return val != null ? Number(val).toFixed(1) : '0.0';
     }
 
     get totalRunsAnalyzed() {
