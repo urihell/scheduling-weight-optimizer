@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GenAiFunction xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Analyzes historical optimization run data using AI to identify underperforming metrics and recommend optimal weight changes. Returns specific weight recommendations with reasoning grounded in actual data patterns. Use after analyzing policy performance to find better weights.</description>
+    <invocationTarget>WeightRecommendationEngine</invocationTarget>
+    <invocationTargetType>apex</invocationTargetType>
+    <isConfirmationRequired>false</isConfirmationRequired>
+    <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+    <masterLabel>Get AI Weight Recommendations</masterLabel>
+    <progressIndicatorMessage>Analyzing optimization data for recommendations...</progressIndicatorMessage>
+</GenAiFunction>

@@ -1,0 +1,14 @@
+{
+  "required": ["schedulingPolicyIdentifier"],
+  "unevaluatedProperties": false,
+  "properties": {
+    "schedulingPolicyIdentifier": {
+      "title": "schedulingPolicyIdentifier",
+      "description": "Name or ID of the scheduling policy to analyze and generate weight recommendations for",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": false
+    }
+  },
+  "lightning:type": "lightning__objectType"
+}

@@ -1,0 +1,38 @@
+{
+  "unevaluatedProperties": false,
+  "properties": {
+    "recommendationJson": {
+      "title": "recommendationJson",
+      "description": "Structured recommendations including per-objective weight changes with data-driven reasoning, summary, and confidence level",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "summary": {
+      "title": "summary",
+      "description": "Natural language summary of findings and weight recommendations",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "confidence": {
+      "title": "confidence",
+      "description": "Confidence level of the recommendations: high, medium, or low",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "success": {
+      "title": "success",
+      "description": "Whether the recommendation generation completed successfully",
+      "lightning:type": "lightning__booleanType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    }
+  },
+  "lightning:type": "lightning__objectType"
+}
