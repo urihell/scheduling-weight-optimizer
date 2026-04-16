@@ -223,10 +223,26 @@ public with sharing class OptimizationAnalysisService {
             totalOptimizable += safe(tor.FSL__TotalNumberOfOptimizableServices__c);
             totalScheduledBefore += safe(tor.FSL__NumOfScheduledSasToResourcesBefore__c);
             totalScheduledAfter += safe(tor.FSL__NumOfScheduledSasToResourcesAfter__c);
-            totalUtilBefore += safe(tor.FSL__UtilizationTotalBefore__c);
-            totalUtilAfter += safe(tor.FSL__UtilizationTotalAfter__c);
-            totalTravelBefore += safe(tor.FSL__TotalTravelTimeBefore__c);
-            totalTravelAfter += safe(tor.FSL__TotalTravelTimeAfter__c);
+
+            // Utilization: prefer UtilizationTotal, fall back to WorkDuration/WorkCapacity
+            if (tor.FSL__UtilizationTotalBefore__c != null) {
+                totalUtilBefore += tor.FSL__UtilizationTotalBefore__c;
+                totalUtilAfter += safe(tor.FSL__UtilizationTotalAfter__c);
+            } else if (tor.FSL__TotalWorkCapacity__c != null && tor.FSL__TotalWorkCapacity__c > 0) {
+                totalUtilBefore += (safe(tor.FSL__TotalWorkDurationScheduledBefore__c) / tor.FSL__TotalWorkCapacity__c) * 100;
+                totalUtilAfter += (safe(tor.FSL__TotalWorkDurationScheduledAfter__c) / tor.FSL__TotalWorkCapacity__c) * 100;
+            }
+
+            // Travel: prefer TotalTravelTime, fall back to TotalTravelTimeWithoutHome
+            Decimal tBefore = tor.FSL__TotalTravelTimeBefore__c != null
+                ? tor.FSL__TotalTravelTimeBefore__c
+                : safe(tor.FSL__TotalTravelTimeWithoutHomeBefore__c);
+            Decimal tAfter = tor.FSL__TotalTravelTimeAfter__c != null
+                ? tor.FSL__TotalTravelTimeAfter__c
+                : safe(tor.FSL__TotalTravelTimeWithoutHomeAfter__c);
+            totalTravelBefore += tBefore;
+            totalTravelAfter += tAfter;
+
             totalOvertimeBefore += safe(tor.FSL__TotalScheduledTimeOnOvertimeBefore__c);
             totalOvertimeAfter += safe(tor.FSL__TotalScheduledTimeOnOvertimeAfter__c);
             totalPreferredBefore += safe(tor.FSL__NumberOfSasSchedToPreferredSrBefore__c);

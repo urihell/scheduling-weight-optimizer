@@ -217,6 +217,7 @@ export default class SchedulingWeightOptimizer extends LightningElement {
         const current = simResult.currentScenario;
         const best = simResult.bestScenario;
         const totalSims = simResult.totalSimulations || 0;
+        const runsEvaluated = simResult.runsEvaluated || 0;
 
         // Build weight comparison table from best scenario vs current
         this.weightComparison = [];
@@ -253,7 +254,7 @@ export default class SchedulingWeightOptimizer extends LightningElement {
             return '<span style="color:#706e6b">no change</span>';
         };
 
-        let text = '<p><strong>Simulation Complete:</strong> Tested <strong>' + totalSims + '</strong> weight configurations against historical data.</p>';
+        let text = '<p><strong>Simulation Complete:</strong> Tested <strong>' + totalSims + '</strong> weight configurations against <strong>' + runsEvaluated + '</strong> historical optimization runs.</p>';
         text += '<p><strong>Best Scenario: </strong>' + best.name + '</p>';
 
         text += '<table style="width:100%;border-collapse:collapse;margin:8px 0">';
