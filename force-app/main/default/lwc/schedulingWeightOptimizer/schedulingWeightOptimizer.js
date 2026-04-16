@@ -3,7 +3,7 @@ import { loadScript } from 'lightning/platformResourceLoader';
 import chartjs from '@salesforce/resourceUrl/chartjs';
 import analyzePolicy from '@salesforce/apex/OptimizationAnalysisService.analyzePolicy';
 import getSchedulingPolicies from '@salesforce/apex/OptimizationAnalysisService.getSchedulingPolicies';
-import simulateForLwc from '@salesforce/apex/WeightSimulationService.simulateForLwc';
+import getRecommendationsForLwc from '@salesforce/apex/WeightRecommendationEngine.getRecommendationsForLwc';
 import applyWeightsForLwc from '@salesforce/apex/WeightUpdateService.applyWeightsForLwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
@@ -134,13 +134,13 @@ export default class SchedulingWeightOptimizer extends LightningElement {
     async handleAnalyzeClick() {
         this.isAnalyzing = true;
         try {
-            const resultJson = await simulateForLwc({
+            const resultJson = await getRecommendationsForLwc({
                 schedulingPolicyId: this.selectedPolicyId
             });
-            const simResult = JSON.parse(resultJson);
-            this.processSimulationResults(simResult);
+            const result = JSON.parse(resultJson);
+            this.processRecommendationResults(result);
         } catch (error) {
-            this.showToast('Error', 'Simulation failed: ' + this.extractError(error), 'error');
+            this.showToast('Error', 'Recommendation failed: ' + this.extractError(error), 'error');
         } finally {
             this.isAnalyzing = false;
         }
@@ -208,85 +208,59 @@ export default class SchedulingWeightOptimizer extends LightningElement {
         }
     }
 
-    processSimulationResults(simResult) {
-        if (!simResult || !simResult.bestScenario) {
-            this.recommendationText = '<p>No simulation results available. Ensure the policy has completed optimization runs.</p>';
+    processRecommendationResults(result) {
+        if (!result || !result.success) {
+            this.recommendationText = '<p>' + (result?.error || 'No recommendations available. Ensure the policy has completed optimization runs.') + '</p>';
             return;
         }
 
-        const current = simResult.currentScenario;
-        const best = simResult.bestScenario;
-        const totalSims = simResult.totalSimulations || 0;
-        const runsEvaluated = simResult.runsEvaluated || 0;
+        const recs = result.recommendations || [];
+        const runsAnalyzed = result.runsAnalyzed || 0;
 
-        // Build weight comparison table from best scenario vs current
-        this.weightComparison = [];
-        const currentMap = {};
-        if (current && current.weights) {
-            for (const w of current.weights) {
-                currentMap[w.objectiveId] = Number(w.weight || 0);
+        // Build weight comparison table
+        this.weightComparison = recs.map(r => {
+            const curW = Number(r.currentWeight || 0);
+            const recW = Number(r.recommendedWeight || 0);
+            const change = recW - curW;
+            return {
+                objectiveId: r.objectiveId,
+                objectiveName: r.objectiveName,
+                objectiveType: r.objectiveType,
+                currentWeight: curW,
+                recommendedWeight: recW,
+                changeDisplay: change > 0 ? '+' + change : change === 0 ? '\u2014' : '' + change,
+                changeClass: change > 0 ? 'change-positive' : change < 0 ? 'change-negative' : 'change-neutral',
+                reasoning: r.reasoning || ''
+            };
+        });
+
+        // Build recommendation text
+        const confidenceLabel = (result.confidence || 'medium').charAt(0).toUpperCase() + (result.confidence || 'medium').slice(1);
+        let text = '<p><strong>AI Analysis Complete</strong> — ' + runsAnalyzed + ' historical optimization runs analyzed. ';
+        text += 'Confidence: <strong>' + confidenceLabel + '</strong></p>';
+
+        if (result.summary) {
+            text += '<p style="margin-top:8px">' + result.summary + '</p>';
+        }
+
+        // Show per-objective reasoning
+        const changedRecs = recs.filter(r => Number(r.recommendedWeight || 0) !== Number(r.currentWeight || 0));
+        if (changedRecs.length > 0) {
+            text += '<div style="margin-top:12px">';
+            for (const r of changedRecs) {
+                const arrow = Number(r.recommendedWeight) > Number(r.currentWeight) ? '&#x2191;' : '&#x2193;';
+                const color = Number(r.recommendedWeight) > Number(r.currentWeight) ? '#2e844a' : '#ea001e';
+                text += '<p style="margin:4px 0"><span style="color:' + color + '">' + arrow + '</span> ';
+                text += '<strong>' + r.objectiveName + '</strong> (' + r.currentWeight + ' &rarr; ' + r.recommendedWeight + '): ';
+                text += '<span style="color:#706e6b">' + (r.reasoning || '') + '</span></p>';
             }
-        }
-
-        if (best.weights) {
-            for (const w of best.weights) {
-                const curW = currentMap[w.objectiveId] != null ? currentMap[w.objectiveId] : 0;
-                const recW = Number(w.weight || 0);
-                const change = recW - curW;
-                this.weightComparison.push({
-                    objectiveId: w.objectiveId,
-                    objectiveName: w.objectiveName,
-                    objectiveType: w.objectiveType,
-                    currentWeight: curW,
-                    recommendedWeight: recW,
-                    changeDisplay: change > 0 ? '+' + change : change === 0 ? '\u2014' : '' + change,
-                    changeClass: change > 0 ? 'change-positive' : change < 0 ? 'change-negative' : 'change-neutral'
-                });
-            }
-        }
-
-        // Build recommendation text with projected metrics
-        const fmt = (v) => v != null ? Number(v).toFixed(1) : '0.0';
-        const delta = (newVal, oldVal) => {
-            const d = Number(newVal || 0) - Number(oldVal || 0);
-            if (d > 0.05) return '<span style="color:#2e844a">+' + d.toFixed(1) + '%</span>';
-            if (d < -0.05) return '<span style="color:#ea001e">' + d.toFixed(1) + '%</span>';
-            return '<span style="color:#706e6b">no change</span>';
-        };
-
-        let text = '<p><strong>Simulation Complete:</strong> Tested <strong>' + totalSims + '</strong> weight configurations against <strong>' + runsEvaluated + '</strong> historical optimization runs.</p>';
-        text += '<p><strong>Best Scenario: </strong>' + best.name + '</p>';
-
-        text += '<table style="width:100%;border-collapse:collapse;margin:8px 0">';
-        text += '<tr style="border-bottom:1px solid #d8d8d8"><th style="text-align:left;padding:4px">Metric</th><th style="padding:4px">Current</th><th style="padding:4px">Projected</th><th style="padding:4px">Change</th></tr>';
-
-        const metrics = [
-            { label: 'Schedule Rate', cur: current.projScheduleRate, proj: best.projScheduleRate },
-            { label: 'Utilization', cur: current.projUtilization, proj: best.projUtilization },
-            { label: 'Travel Reduction', cur: current.projTravel, proj: best.projTravel },
-            { label: 'Overtime Reduction', cur: current.projOvertime, proj: best.projOvertime },
-            { label: 'Preferred Resource', cur: current.projPreferred, proj: best.projPreferred }
-        ];
-
-        for (const m of metrics) {
-            text += '<tr style="border-bottom:1px solid #eee">';
-            text += '<td style="padding:4px">' + m.label + '</td>';
-            text += '<td style="padding:4px;text-align:center">' + fmt(m.cur) + '%</td>';
-            text += '<td style="padding:4px;text-align:center"><strong>' + fmt(m.proj) + '%</strong></td>';
-            text += '<td style="padding:4px;text-align:center">' + delta(m.proj, m.cur) + '</td>';
-            text += '</tr>';
-        }
-        text += '</table>';
-
-        const scoreDelta = Number(best.compositeScore || 0) - Number(current.compositeScore || 0);
-        if (scoreDelta > 0.05) {
-            text += '<p style="margin-top:8px">Composite score improvement: <strong style="color:#2e844a">+' + scoreDelta.toFixed(1) + '</strong></p>';
+            text += '</div>';
         } else {
-            text += '<p style="margin-top:8px">Current weights are near-optimal based on historical data.</p>';
+            text += '<p style="margin-top:8px;color:#2e844a"><strong>Your current weights are performing well.</strong> No changes recommended at this time.</p>';
         }
 
         text += '<p style="margin-top:12px;padding:8px 12px;background:#f3f2f2;border-radius:4px;font-size:12px;color:#706e6b">';
-        text += '<strong>Note:</strong> Projections are model-based estimates using historical baselines and domain-knowledge impact coefficients \u2014 not actual optimizer runs. ';
+        text += '<strong>Note:</strong> Recommendations are AI-generated based on analysis of historical optimization patterns. ';
         text += 'Apply the recommended weights, run a real optimization, then return here to analyze the results and refine further.</p>';
 
         this.recommendationText = text;
